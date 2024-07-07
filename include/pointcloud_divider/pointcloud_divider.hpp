@@ -6,58 +6,25 @@
 #include <yaml-cpp/yaml.h>
 #include <unordered_map>
 #include <unordered_set>
+#include <tuple>
 
 #define PCL_NO_PRECOMPILE
 #include <pcl/io/pcd_io.h>
 #include <pcl/filters/voxel_grid.h>
 
-struct GridInfo
-{
-  int x, y, gx, gy;
-  GridInfo() : x(0), y(0), gx(0), gy(0)
-  {
-  }
-  GridInfo(int x, int y) : x(x), y(y)
-  {
-  }
-  GridInfo(int x, int y, int gx, int gy) : x(x), y(y), gx(gx), gy(gy)
-  {
-  }
-  friend bool operator==(const GridInfo& one, const GridInfo& other)
-  {
-    return one.x == other.x && one.y == other.y;
-  }
-  friend bool operator!=(const GridInfo& one, const GridInfo& other)
-  {
-    return !(one == other);
-  }
-  friend std::ostream& operator<<(std::ostream& os, const GridInfo& g)
-  {
-    os << g.x << ' ' << g.y;
-    return os;
-  }
-};
-
-// This is for unordered_map and unodered_set
-namespace std
-{
-template <>
-struct hash<GridInfo>
-{
-public:
-  size_t operator()(const GridInfo& grid) const
-  {
-    std::size_t seed = 0;
-    seed ^= std::hash<int>{}(grid.x) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-    seed ^= std::hash<int>{}(grid.y) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-    return seed;
-  }
-};
-}  // namespace std
+#include "grid_info.hpp"
 
 template <class PointT>
 class PointCloudDivider
 {
+
+  typedef pcl::PointCloud<PointT> PclCloudType;
+  typedef typename PclCloudType::Ptr PclCloudPtr;
+  typedef std::unordered_map<GridInfo, std::tuple<PclCloudType, int, size_t>> GridMapType;
+  typedef typename GridMapType::iterator GridMapItr;
+  typedef std::multimap<size_t, GridMapItr> GridMapSizeType;
+  typedef typename GridMapSizeType::iterator GridMapSizeItr;
+
 public:
   PointCloudDivider()
   {
@@ -71,16 +38,12 @@ public:
     return std::pair<double, double>(grid_size_x_, grid_size_y_);
   }
 
-  void run(std::vector<std::string> pcd_names, std::string output_dir, std::string file_prefix, std::string config);
+  void run(std::vector<std::string> & pcd_names, const std::string & output_dir, const std::string & file_prefix, const std::string & config);
 
-  void run(const typename pcl::PointCloud<PointT>::Ptr& cloud, std::string output_dir, std::string file_prefix,
-           std::string config);
+  void run(const PclCloudPtr& cloud, const std::string & output_dir, const std::string & file_prefix,
+           const std::string & config);
 
   std::string makeFileName(const GridInfo& grid) const;
-
-  GridInfo pointToGrid(const Eigen::Vector3f& pos) const;
-
-  std::pair<int, int> gridToCenter(const GridInfo& grid) const;
 
   void setUseLargeGrid(const bool use_large_grid)
   {
@@ -88,8 +51,7 @@ public:
   }
 
 private:
-  typename pcl::PointCloud<PointT>::Ptr cloud_ptr_;
-  typename pcl::PointCloud<PointT>::Ptr merged_ptr_;
+  PclCloudPtr merged_ptr_;
   std::string output_dir_, file_prefix_, config_file_;
 
   std::unordered_set<GridInfo> grid_set_;
@@ -103,16 +65,33 @@ private:
   double g_grid_size_x_ = grid_size_x_ * 10;
   double g_grid_size_y_ = grid_size_y_ * 10;
 
-  std::unordered_map<GridInfo, pcl::PointCloud<PointT>> grid_to_cloud;
+  // Maximum number of points per PCD block
+  const size_t max_block_size_ = 50000;
 
-  typename pcl::PointCloud<PointT>::Ptr loadPCD(const std::string& pcd_name);
+  // Map of points distributed to grids
+  GridMapType grid_to_cloud_;
+
+  // Segments but sorted by size
+  GridMapSizeType seg_by_size_;
+  // Map segments to size iterator
+  std::unordered_map<GridInfo, GridMapSizeItr> seg_to_size_itr_map_;
+  // Only 100 million points are allowed to reside in the main memory at max
+  const size_t max_resident_point_num_ = 100000000;
+  size_t resident_point_num_ = 0;
+  std::string tmp_dir_;
+
+  PclCloudPtr loadPCD(const std::string& pcd_name);
   void savePCD(const std::string& pcd_name, const pcl::PointCloud<PointT>& cloud);
   void saveMergedPCD();
-  void dividePointCloud(const typename pcl::PointCloud<PointT>::Ptr& cloud_ptr);
-  void saveGridPCD();
+  void dividePointCloud(const PclCloudPtr& cloud_ptr);
   void paramInitialize();
   void saveGridInfoToYAML(const std::string& yaml_file_path);
   void checkOutputDirectoryValidity() const;
+
+  void saveGridPCD(GridMapItr & grid_it);
+  void saveTheRest();
+  void mergeAndDownsample();
+  void mergeAndDownsample(const std::string & dir_path, std::list<std::string> & pcd_list, size_t total_pnum);
 };
 
 #endif

@@ -18,6 +18,7 @@ include_directories(include)
 set(SOURCES
     src/pointcloud_divider_core.cpp
     src/pointcloud_divider.cpp
+    src/voxel_grid_filter.cpp
 )
 
 add_executable(pointcloud_divider ${SOURCES})
