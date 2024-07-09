@@ -18,7 +18,6 @@
 template <class PointT>
 class PointCloudDivider
 {
-
   typedef pcl::PointCloud<PointT> PclCloudType;
   typedef typename PclCloudType::Ptr PclCloudPtr;
   typedef std::unordered_map<GridInfo<2>, std::tuple<PclCloudType, int, size_t>> GridMapType;
@@ -39,10 +38,11 @@ public:
     return std::pair<double, double>(grid_size_x_, grid_size_y_);
   }
 
-  void run(std::vector<std::string> & pcd_names, const std::string & output_dir, const std::string & file_prefix, const std::string & config);
+  void run(std::vector<std::string>& pcd_names, const std::string& output_dir, const std::string& file_prefix,
+           const std::string& config);
 
-  void run(const PclCloudPtr& cloud, const std::string & output_dir, const std::string & file_prefix,
-           const std::string & config);
+  void run(const PclCloudPtr& cloud, const std::string& output_dir, const std::string& file_prefix,
+           const std::string& config);
 
   std::string makeFileName(const GridInfo<2>& grid) const;
 
@@ -82,7 +82,6 @@ private:
   std::string tmp_dir_;
   CustomPCDReader<PointT> reader_;
 
-
   PclCloudPtr loadPCD(const std::string& pcd_name);
   void savePCD(const std::string& pcd_name, const pcl::PointCloud<PointT>& cloud);
   void saveMergedPCD();
@@ -91,10 +90,10 @@ private:
   void saveGridInfoToYAML(const std::string& yaml_file_path);
   void checkOutputDirectoryValidity() const;
 
-  void saveGridPCD(GridMapItr & grid_it);
+  void saveGridPCD(GridMapItr& grid_it);
   void saveTheRest();
   void mergeAndDownsample();
-  void mergeAndDownsample(const std::string & dir_path, std::list<std::string> & pcd_list, size_t total_pnum);
+  void mergeAndDownsample(const std::string& dir_path, std::list<std::string>& pcd_list, size_t total_pnum);
 };
 
 #endif

@@ -8,27 +8,27 @@
 template <typename PointT>
 class VoxelGridFilter
 {
-    typedef pcl::PointCloud<PointT> PclCloudType;
-    typedef typename PclCloudType::Ptr PclCloudPtr;
+  typedef pcl::PointCloud<PointT> PclCloudType;
+  typedef typename PclCloudType::Ptr PclCloudPtr;
 
 public:
-    VoxelGridFilter()
-    {
-        resolution_ = 0;
-    }
+  VoxelGridFilter()
+  {
+    resolution_ = 0;
+  }
 
-    void setResolution(float res)
+  void setResolution(float res)
+  {
+    if (res > 0)
     {
-        if (res > 0)
-        {
-            resolution_ = res;
-        }
+      resolution_ = res;
     }
+  }
 
-    void filter(const PclCloudType & input, PclCloudType & output);
+  void filter(const PclCloudType& input, PclCloudType& output);
 
 private:
-    float resolution_;
+  float resolution_;
 };
 
 template class VoxelGridFilter<pcl::PointXYZ>;

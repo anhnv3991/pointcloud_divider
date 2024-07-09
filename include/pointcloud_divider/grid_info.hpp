@@ -13,9 +13,10 @@ struct GridInfo
   GridInfo() : ix(0), iy(0), iz(0)
   {
   }
-  
+
   GridInfo(int x, int y, int z = 0) : ix(x), iy(y), iz(z)
-  {}
+  {
+  }
 
   friend bool operator==(const GridInfo& one, const GridInfo& other)
   {
@@ -65,7 +66,7 @@ public:
   size_t operator()(const GridInfo<3>& grid) const
   {
     std::size_t seed = 0;
-    
+
     seed ^= std::hash<int>{}(grid.ix) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
     seed ^= std::hash<int>{}(grid.iy) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
     seed ^= std::hash<int>{}(grid.iz) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
@@ -79,20 +80,20 @@ public:
 template <typename PointT>
 GridInfo<2> pointToGrid2(const PointT& p, double res_x, double res_y)
 {
-    int x_id = static_cast<int>(std::floor(p.x / res_x) * res_x);
-    int y_id = static_cast<int>(std::floor(p.y / res_y) * res_y);
+  int x_id = static_cast<int>(std::floor(p.x / res_x) * res_x);
+  int y_id = static_cast<int>(std::floor(p.y / res_y) * res_y);
 
-    return GridInfo<2>(x_id, y_id);
+  return GridInfo<2>(x_id, y_id);
 }
 
 template <typename PointT>
 GridInfo<3> pointToGrid3(const PointT& p, double res_x, double res_y, double res_z)
 {
-    int x_id = static_cast<int>(std::floor(p.x / res_x));
-    int y_id = static_cast<int>(std::floor(p.y / res_y));
-    int z_id = static_cast<int>(std::floor(p.z / res_z));
+  int x_id = static_cast<int>(std::floor(p.x / res_x));
+  int y_id = static_cast<int>(std::floor(p.y / res_y));
+  int z_id = static_cast<int>(std::floor(p.z / res_z));
 
-    return GridInfo<3>(x_id, y_id, z_id);
+  return GridInfo<3>(x_id, y_id, z_id);
 }
 
 #endif
