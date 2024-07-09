@@ -53,14 +53,20 @@ void PointCloudDivider<PointT>::run(std::vector<std::string> & pcd_names, const 
 
   for (const std::string& pcd_name : pcd_names)
   {
-    std::cout << "Processing ... " << pcd_name << "..." << std::flush;
+    std::cout << "Processing file " << pcd_name << "..." << std::endl;
 
-    auto cloud_ptr = loadPCD(pcd_name);
+    do 
+    {
+      auto cloud_ptr = loadPCD(pcd_name);
 
-    dividePointCloud(cloud_ptr);
+      dividePointCloud(cloud_ptr);
+    } 
+    while (reader_.good());
   }
 
   saveTheRest();
+
+  std::cerr << "Merge and downsample " << std::endl;
 
   // Now merge and downsample
   mergeAndDownsample();
@@ -84,35 +90,15 @@ void PointCloudDivider<PointT>::checkOutputDirectoryValidity() const
 template <class PointT>
 typename pcl::PointCloud<PointT>::Ptr PointCloudDivider<PointT>::loadPCD(const std::string& pcd_name)
 {
+  if (pcd_name != reader_.get_path())
   {
-    // Read only the header of the PCD file and warn if the data fields are different from XYZI.
-    pcl::PCDReader reader;
-    pcl::PCLPointCloud2 cloud;
-    if (reader.readHeader(pcd_name, cloud) != 0)
-    {
-      std::cerr << "Error: Cannot load PCD: " << pcd_name << std::endl;
-      exit(1);
-    }
-
-    std::set<std::string> field_set;
-    for (const auto& field : cloud.fields)
-    {
-      field_set.insert(field.name);
-    }
-
-    if (field_set.count("intensity") == 0)
-    {
-      std::cerr << "Warning: " << pcd_name << " does not contains `intensity` field,  substituted with 0." << std::endl;
-    }
+    reader_.setInput(pcd_name);
   }
 
   PclCloudPtr cloud_ptr(new PclCloudType);
 
-  if (pcl::io::loadPCDFile(pcd_name, *cloud_ptr) == -1)
-  {
-    std::cerr << "Error: Cannot load PCD: " << pcd_name << std::endl;
-    exit(1);
-  }
+  reader_.readABlock(*cloud_ptr);
+
   return cloud_ptr;
 }
 
@@ -139,10 +125,12 @@ void PointCloudDivider<PointT>::saveMergedPCD()
 template <class PointT>
 void PointCloudDivider<PointT>::dividePointCloud(const PclCloudPtr& cloud_ptr)
 {
-  if (!cloud_ptr)
+  if (!cloud_ptr || cloud_ptr->size() <= 0)
   {
     return;
   }
+
+  std::cout << "\tProcessing a block of " << cloud_ptr->size() << " points... \r" << std::flush;
   
   size_t progress = 0, total_pnum = cloud_ptr->size();
 
@@ -150,11 +138,11 @@ void PointCloudDivider<PointT>::dividePointCloud(const PclCloudPtr& cloud_ptr)
   {
     if (progress % 10000 == 0 || progress == cloud_ptr->size())
     {
-      std::cout << static_cast<int>(static_cast<float>(progress) / static_cast<float>(total_pnum) * 100) << "%\r" << std::flush;
+      std::cout << "\tProcessing a block of " << cloud_ptr->size() << " points... " << static_cast<int>(static_cast<float>(progress) / static_cast<float>(total_pnum) * 100) << "%\r" << std::flush;
     }
     ++progress;
 
-    GridInfo tmp = pointToGrid(p, grid_size_x_, grid_size_y_);
+    auto tmp = pointToGrid2(p, grid_size_x_, grid_size_y_);
     auto it = grid_to_cloud_.find(tmp);
 
     // If the grid has not existed yet, create a new one
@@ -215,7 +203,7 @@ void PointCloudDivider<PointT>::dividePointCloud(const PclCloudPtr& cloud_ptr)
     }
   }
 
-  std::cerr << "100%" << std::endl;
+  std::cout << "\tProcessing a block of " << cloud_ptr->size() << " points... 100%" << std::endl;
 }
 
 template <class PointT>
@@ -277,10 +265,24 @@ void PointCloudDivider<PointT>::mergeAndDownsample()
   // Scan the tmp directory and find the segment folders
   fs::path tmp_path(tmp_dir_);
 
+  // Count the number of sub folders, to estimate progress
+  int seg_num = 0, progress = 0;
+
+  for (auto & entry : fs::directory_iterator(tmp_path))
+  {
+    if (fs::is_directory(entry.symlink_status()))
+    {
+      ++seg_num;
+    }
+  }
+
   for (auto & tmp_dir_entry : fs::directory_iterator(tmp_path))
   {
     if (fs::is_directory(tmp_dir_entry.symlink_status()))
     {
+      std::cout << "\tProcessing... " << static_cast<int>(static_cast<float>(progress) / static_cast<float>(seg_num) * 100) << "%\r" << std::flush;
+      ++progress;
+
       std::list<std::string> pcd_list;
       size_t total_pnum = 0;
 
@@ -303,6 +305,8 @@ void PointCloudDivider<PointT>::mergeAndDownsample()
       mergeAndDownsample(tmp_dir_entry.path().string(), pcd_list, total_pnum);
     }
   }
+
+  std::cout << "\tProcessing... 100%" << std::endl;
 
   // Remove tmp dir
   util::remove(tmp_dir_);
@@ -358,7 +362,7 @@ void PointCloudDivider<PointT>::mergeAndDownsample(const std::string & dir_path,
   int gx = std::stoi(seg_name_only.substr(0, ubar_pos));
   int gy = std::stoi(seg_name_only.substr(ubar_pos + 1));
 
-  grid_set_.insert(GridInfo(gx, gy));
+  grid_set_.insert(GridInfo<2>(gx, gy));
 
   // Construct the path to save the new_cloud
   std::string save_path;
@@ -392,12 +396,12 @@ void PointCloudDivider<PointT>::mergeAndDownsample(const std::string & dir_path,
 }
 
 template <class PointT>
-std::string PointCloudDivider<PointT>::makeFileName(const GridInfo& grid) const
+std::string PointCloudDivider<PointT>::makeFileName(const GridInfo<2>& grid) const
 {
   std::string file_name = output_dir_;
 
   file_name = file_name + file_prefix_ + "_";
-  file_name = file_name + std::to_string(grid.x) + "_" + std::to_string(grid.y) + ".pcd";
+  file_name = file_name + std::to_string(grid.ix) + "_" + std::to_string(grid.iy) + ".pcd";
 
   return file_name;
 }
@@ -442,11 +446,11 @@ void PointCloudDivider<PointT>::saveGridInfoToYAML(const std::string& yaml_file_
   yaml_file << "x_resolution: " << grid_size_x_ << std::endl;
   yaml_file << "y_resolution: " << grid_size_y_ << std::endl;
 
-  for (const GridInfo& grid : grid_set_)
+  for (const auto& grid : grid_set_)
   {
     std::string file_name = makeFileName(grid);
     fs::path p(file_name);
-    yaml_file << p.filename().string() << ": [" << grid.x << ", " << grid.y << "]" << std::endl;
+    yaml_file << p.filename().string() << ": [" << grid.ix << ", " << grid.iy << "]" << std::endl;
   }
 
   yaml_file.close();

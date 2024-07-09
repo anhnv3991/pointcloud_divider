@@ -12,11 +12,11 @@ void VoxelGridFilter<PointT>::filter(const PclCloudType & input, PclCloudType & 
         return;
     }
 
-    std::unordered_map<GridInfo, Centroid<PointT>> grid_map;
+    std::unordered_map<GridInfo<3>, Centroid<PointT>> grid_map;
 
     for (auto & p : input)
     {
-        GridInfo gkey = pointToGrid(p, resolution_, resolution_);
+        auto gkey = pointToGrid3(p, resolution_, resolution_, resolution_);
 
         grid_map[gkey].add(p);
     }

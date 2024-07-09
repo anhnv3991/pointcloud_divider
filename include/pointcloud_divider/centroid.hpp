@@ -12,18 +12,18 @@ void compute_centroid(const PointT & acc_diff, const PointT & first_p, size_t po
 template <>
 void accumulate(const pcl::PointXYZ & p, const pcl::PointXYZ & first_p, pcl::PointXYZ & acc_diff)
 {
-    acc_diff.x =  p.x - first_p.x;
-    acc_diff.y =  p.y - first_p.y;
-    acc_diff.z =  p.z - first_p.z;
+    acc_diff.x +=  p.x - first_p.x;
+    acc_diff.y +=  p.y - first_p.y;
+    acc_diff.z +=  p.z - first_p.z;
 }
 
 template <>
 void accumulate(const pcl::PointXYZI & p, const pcl::PointXYZI & first_p, pcl::PointXYZI & acc_diff)
 {
-    acc_diff.x =  p.x - first_p.x;
-    acc_diff.y =  p.y - first_p.y;
-    acc_diff.z =  p.z - first_p.z;
-    acc_diff.intensity = p.intensity - first_p.intensity;
+    acc_diff.x +=  p.x - first_p.x;
+    acc_diff.y +=  p.y - first_p.y;
+    acc_diff.z +=  p.z - first_p.z;
+    acc_diff.intensity += p.intensity - first_p.intensity;
 }
 
 template <>
@@ -53,6 +53,8 @@ struct Centroid
     Centroid() 
     {
         point_num_ = 0;
+        memset(&acc_diff_, 0x00, sizeof(PointT));
+        memset(&first_point_, 0x00, sizeof(PointT));
     }
 
     void add(const PointT & p)

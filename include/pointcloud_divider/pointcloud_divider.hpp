@@ -13,6 +13,7 @@
 #include <pcl/filters/voxel_grid.h>
 
 #include "grid_info.hpp"
+#include "pcd_io.hpp"
 
 template <class PointT>
 class PointCloudDivider
@@ -20,7 +21,7 @@ class PointCloudDivider
 
   typedef pcl::PointCloud<PointT> PclCloudType;
   typedef typename PclCloudType::Ptr PclCloudPtr;
-  typedef std::unordered_map<GridInfo, std::tuple<PclCloudType, int, size_t>> GridMapType;
+  typedef std::unordered_map<GridInfo<2>, std::tuple<PclCloudType, int, size_t>> GridMapType;
   typedef typename GridMapType::iterator GridMapItr;
   typedef std::multimap<size_t, GridMapItr> GridMapSizeType;
   typedef typename GridMapSizeType::iterator GridMapSizeItr;
@@ -43,7 +44,7 @@ public:
   void run(const PclCloudPtr& cloud, const std::string & output_dir, const std::string & file_prefix,
            const std::string & config);
 
-  std::string makeFileName(const GridInfo& grid) const;
+  std::string makeFileName(const GridInfo<2>& grid) const;
 
   void setUseLargeGrid(const bool use_large_grid)
   {
@@ -54,7 +55,7 @@ private:
   PclCloudPtr merged_ptr_;
   std::string output_dir_, file_prefix_, config_file_;
 
-  std::unordered_set<GridInfo> grid_set_;
+  std::unordered_set<GridInfo<2>> grid_set_;
 
   // Params from yaml
   bool use_large_grid_ = false;
@@ -66,7 +67,7 @@ private:
   double g_grid_size_y_ = grid_size_y_ * 10;
 
   // Maximum number of points per PCD block
-  const size_t max_block_size_ = 50000;
+  const size_t max_block_size_ = 500000;
 
   // Map of points distributed to grids
   GridMapType grid_to_cloud_;
@@ -74,11 +75,13 @@ private:
   // Segments but sorted by size
   GridMapSizeType seg_by_size_;
   // Map segments to size iterator
-  std::unordered_map<GridInfo, GridMapSizeItr> seg_to_size_itr_map_;
+  std::unordered_map<GridInfo<2>, GridMapSizeItr> seg_to_size_itr_map_;
   // Only 100 million points are allowed to reside in the main memory at max
   const size_t max_resident_point_num_ = 100000000;
   size_t resident_point_num_ = 0;
   std::string tmp_dir_;
+  CustomPCDReader<PointT> reader_;
+
 
   PclCloudPtr loadPCD(const std::string& pcd_name);
   void savePCD(const std::string& pcd_name, const pcl::PointCloud<PointT>& cloud);
